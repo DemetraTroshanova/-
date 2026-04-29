@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Decision Tree</title>
+    <style>
+        :root {
+            --blue: #00b0ff;
+            --grey: #c4c4ac;
+            --orange: #ff6d00;
+            --line-color: #8d8d7a;
+        }
+
+        body {
+            font-family: sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .tree-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            position: relative;
+        }
+
+        .level {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            position: relative;
+            min-height: 60px;
+        }
+
+        .node {
+            padding: 15px 20px;
+            border: 2px solid #555;
+            border-radius: 10px;
+            background: var(--grey);
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            z-index: 2;
+            text-align: center;
+            user-select: none;
+            min-width: 140px;
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .node.active {
+            background: var(--blue) !important;
+            border-color: #007bbd;
+            color: white;
+        }
+
+        .node.root { background: var(--blue); }
+        .node.result { background: var(--orange); border-color: #b34b00; cursor: default; }
+
+        .hidden {
+            display: none !important;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tree-container" id="tree">
+        <div class="level">
+            <div class="node root active" onclick="toggleLevel('income-level')">Коя кола ти подхожда?</div>
+        </div>
+
+        <div id="income-level" class="level hidden">
+            <div class="node" onclick="selectNode(this, 'kids-level')">Много висок доход</div>
+            <div class="node" onclick="selectNode(this, 'kids-level')">Висок доход</div>
+            <div class="node" onclick="selectNode(this, 'kids-level')">Нормален доход</div>
+            <div class="node" onclick="selectNode(this, 'kids-level')">Нисък доход</div>
+        </div>
+
+        <div id="kids-level" class="level hidden">
+            <div class="node" onclick="selectNode(this, 'final-level')">Повече от 2 деца</div>
+            <div class="node" onclick="selectNode(this, 'final-level')">Без деца</div>
+            <div class="node" onclick="selectNode(this, 'final-level')">1-2 деца</div>
+        </div>
+
+        <div id="final-level" class="level hidden">
+            <div class="node result" id="car-result">Вашият идеален избор!</div>
+        </div>
+
+        <svg id="svg-canvas"></svg>
+    </div>
+
+    <script>
+        function toggleLevel(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('hidden');
+            setTimeout(drawLines, 10); 
+        }
+
+        function selectNode(clickedNode, nextLevelId) {
+            const parentLevel = clickedNode.parentElement;
+            const siblings = parentLevel.querySelectorAll('.node');
+            siblings.forEach(n => n.classList.remove('active'));
+            
+            clickedNode.classList.add('active');
+
+            const nextLevel = document.getElementById(nextLevelId);
+            nextLevel.classList.remove('hidden');
+
+            if (nextLevelId === 'final-level') {
+                updateResult();
+            }
+
+            setTimeout(drawLines, 10);
+        }
+
+        function updateResult() {
+            const activeNodes = document.querySelectorAll('.node.active');
+            const income = activeNodes[1] ? activeNodes[1].innerText : "";
+            const kids = activeNodes[2] ? activeNodes[2].innerText : "";
+            
+            let car = "Стандартен модел";
+            if (kids.includes("Повече")) car = "7-местен SUV";
+            else if (income.includes("Много висок")) car = "Спортно Ferrari";
+            else if (kids.includes("Без")) car = "Градско купе";
+
+            document.getElementById('car-result').innerText = "Препоръка: " + car;
+        }
+
+        function drawLines() {
+            const svg = document.getElementById('svg-canvas');
+            const tree = document.getElementById('tree');
+            svg.innerHTML = ''; 
+
+            const levels = Array.from(document.querySelectorAll('.level:not(.hidden)'));
+            
+            for (let i = 0; i < levels.length - 1; i++) {
+                const currentLevelNodes = levels[i].querySelectorAll('.node.active');
+                const nextLevelNodes = levels[i+1].querySelectorAll('.node');
+
+                currentLevelNodes.forEach(parent => {
+                    nextLevelNodes.forEach(child => {
+                        drawLine(parent, child, svg, tree);
+                    });
+                });
+            }
+        }
+
+        function drawLine(startEl, endEl, svg, container) {
+            const startRect = startEl.getBoundingClientRect();
+            const endRect = endEl.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+
+            const x1 = startRect.left + startRect.width / 2 - containerRect.left;
+            const y1 = startRect.bottom - containerRect.top;
+            const x2 = endRect.left + endRect.width / 2 - containerRect.left;
+            const y2 = endRect.top - containerRect.top;
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                        const d = `M${x1},${y1} C${x1},${y1 + 20} ${x2},${y2 - 20} ${x2},${y2}`;
+            
+            path.setAttribute("d", d);
+            path.setAttribute("class", "line");
+            svg.appendChild(path);
+        }
+
+        window.onresize = drawLines;
+    </script>
+</body>
+</html>
